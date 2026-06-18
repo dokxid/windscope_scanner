@@ -64,17 +64,14 @@ import random
 import sys
 
 
-
-
-def crop_json (uncropped_json):
-        temp_json = json.dumps(uncropped_json)
-        print(temp_json)
-        print(type(temp_json))
-
-        return (temp_json)
+def crop_json(uncropped_json):
+    temp_json = json.dumps(uncropped_json)
+    print(temp_json)
+    print(type(temp_json))
+    return (temp_json)
 
 class Cityscopy:
-    '''sacnner for CityScope'''
+    '''scanner for CityScope'''
 
     ##################################################
 
@@ -160,8 +157,10 @@ class Cityscopy:
 
         # serial num of camera, to switch between cameras
         camPos = self.table_settings['camId']
+
         # try from a device 1 in list, not default webcam
-        video_capture = cv2.VideoCapture(camPos, cv2.CAP_DSHOW)
+        # TODO: windows only: video_capture = cv2.VideoCapture(camPos, cv2.CAP_DSHOW)
+        video_capture = cv2.VideoCapture(camPos, cv2.CAP_V4L2)
         time.sleep(1)
 
         if grid_dimensions_y < grid_dimensions_x:
@@ -687,7 +686,9 @@ class Cityscopy:
         convert color to hsv for oclidian distance
         '''
         bgr_to_grayscale = cv2.cvtColor(mean_color_RGB, cv2.COLOR_BGR2GRAY)
-        if int(bgr_to_grayscale) < 125:
+        # the [0, 0] thing seems to be needed on V4L2
+        # TODO: does this still throw errors on windows (CAP_DSHOW)?
+        if int(bgr_to_grayscale[0, 0]) < 125:
             this_color = 0
         else:
             this_color = 1
@@ -777,7 +778,7 @@ class Cityscopy:
         # serial num of camera, to switch between cameras
         camPos = self.table_settings['camId']
         # try from a device 1 in list, not default webcam
-        WEBCAM = cv2.VideoCapture(camPos, cv2.CAP_DSHOW)
+        WEBCAM = cv2.VideoCapture(camPos, cv2.CAP_V4L2)
 
         time.sleep(1)
 
@@ -802,33 +803,25 @@ class Cityscopy:
                 # wait for clicks
                 cv2.setMouseCallback('canvas', save_this_point)
                 # read the WEBCAM frames
-
-
                 _, self.FRAME = WEBCAM.read()
                 h, w, *_ = self.FRAME.shape
-                #res_matrix = np.array([[w, 0, 0], [0, h, 0], [0, 0, 1]])
+
+                # res_matrix = np.array([[w, 0, 0], [0, h, 0], [0, 0, 1]])
                 matrix =  np.array([[613.88367983, 0, 319.21787006],[0, 614.31059499, 202.28879716],[0, 0, 1]])
                 distortion =  np.array([[-0.37703544,  0.31425025, -0.00366991, -0.00103216, -0.28197977]])
 
-                #rel_camera_matrix = np.array(matrix)
-                #distortion_coefficients = np.array(distortion)
-                        
-                #abs_camera_matrix = np.matmul(res_matrix, rel_camera_matrix)
+                # rel_camera_matrix = np.array(matrix)
+                # distortion_coefficients = np.array(distortion)
+
+                # abs_camera_matrix = np.matmul(res_matrix, rel_camera_matrix)
                 newcameramtx, roi = cv2.getOptimalNewCameraMatrix(matrix, distortion, (w,h), 1, (w,h))
-                #self.FRAME = cv2.undistort(self.FRAME,rel_camera_matrix, distortion_coefficients, None, newcameramtx)
+                # self.FRAME = cv2.undistort(self.FRAME,rel_camera_matrix, distortion_coefficients, None, newcameramtx)
                 self.FRAME = cv2.undistort(self.FRAME, matrix, distortion, None, newcameramtx)
-
-
 
                 # _, self.FRAME = WEBCAM.read()
                 if self.table_settings['mirror_cam'] is True:
                     self.FRAME = cv2.flip(self.FRAME, 1)
-                
-                
-                
-                
-                
-                
+
                 # draw mouse pos
                 cv2.circle(self.FRAME, self.MOUSE_POSITION, 10, (0, 0, 255), 1)
                 cv2.circle(self.FRAME, self.MOUSE_POSITION, 1, (0, 0, 255), 2)
@@ -850,6 +843,7 @@ class Cityscopy:
                 # save this point to the array pts
                 self.POINTS[self.POINT_INDEX] = (x, y)
                 self.POINT_INDEX = self.POINT_INDEX + 1
+
         # checks if finished selecting the 4 corners
         if selectFourPoints():
             np.savetxt(self.KEYSTONE_PATH, self.POINTS)
